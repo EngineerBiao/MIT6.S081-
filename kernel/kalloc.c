@@ -18,13 +18,14 @@ struct run {
   struct run *next;
 };
 
+// 定义了一个匿名结构体，freelist是第一个空闲内存页的地址（每个内存页的大小是4096B）
 struct {
   struct spinlock lock;
   struct run *freelist;
 } kmem;
 
 void
-kinit()
+kinit() 
 {
   initlock(&kmem.lock, "kmem");
   freerange(end, (void*)PHYSTOP);
@@ -79,4 +80,16 @@ kalloc(void)
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
+}
+// 获取空闲内存大小，就是遍历freelist然后乘上页大小
+uint64 free_mem(void)
+{
+  struct run *pg = kmem.freelist;
+  uint64 n = 0;
+  while (pg != NULL)
+  {
+    n++;
+    pg = pg->next;
+  }
+  return n * PGSIZE;
 }

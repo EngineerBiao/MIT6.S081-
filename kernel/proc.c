@@ -8,7 +8,7 @@
 
 struct cpu cpus[NCPU];
 
-struct proc proc[NPROC];
+struct proc proc[NPROC]; // 所有进程的数组
 
 struct proc *initproc;
 
@@ -259,7 +259,7 @@ int
 fork(void)
 {
   int i, pid;
-  struct proc *np;
+  struct proc *np; // np是要fork的子进程
   struct proc *p = myproc();
 
   // Allocate process.
@@ -292,6 +292,8 @@ fork(void)
   safestrcpy(np->name, p->name, sizeof(p->name));
 
   pid = np->pid;
+  // 将trace_mask拷贝到子进程
+  np->trace_mask = p->trace_mask;
 
   np->state = RUNNABLE;
 
@@ -692,4 +694,18 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+// 获取空闲进程数量
+uint64 free_proc(void)
+{`
+  uint64 n = 0;
+  struct proc *p;
+  for (p = proc; p < &proc[NPROC]; p++) // 仿照scheduler函数的写法
+  {
+    acquire(&p->lock); // 访问state要上锁
+    if (p->state != UNUSED)
+      n++;
+    release(&p->lock);
+  }
+  return n;
 }

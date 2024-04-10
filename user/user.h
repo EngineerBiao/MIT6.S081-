@@ -1,5 +1,6 @@
 struct stat;
 struct rtcdate;
+struct sysinfo; // 结构体前向声明，因为后面有函数的参数是这个
 
 // system calls
 int fork(void);
@@ -23,6 +24,8 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+int trace(int);
+int sysinfo(struct sysinfo *);
 
 // ulib.c
 int stat(const char*, struct stat*);

@@ -3,6 +3,7 @@
 #include "kernel/stat.h"
 #include "user/user.h"
 
+// 注：该函数的作用看笔记
 int
 main(int argc, char *argv[])
 {
