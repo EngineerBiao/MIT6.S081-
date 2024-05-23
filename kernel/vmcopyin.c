@@ -26,14 +26,14 @@ statscopyin(char *buf, int sz) {
 // Copy from user to kernel.
 // Copy len bytes to dst from virtual address srcva in a given page table.
 // Return 0 on success, -1 on error.
-int
-copyin_new(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
+// 将数据从用户空间复制到内核空间，dst是目标地址（指向内核中的缓冲区），stcva是用户源地址
+int copyin_new(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
 {
   struct proc *p = myproc();
 
   if (srcva >= p->sz || srcva+len >= p->sz || srcva+len < srcva)
     return -1;
-  memmove((void *) dst, (void *)srcva, len);
+  memmove((void *) dst, (void *)srcva, len); // 拷贝字符串
   stats.ncopyin++;   // XXX lock
   return 0;
 }
@@ -42,8 +42,7 @@ copyin_new(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
 // Copy bytes to dst from virtual address srcva in a given page table,
 // until a '\0', or max.
 // Return 0 on success, -1 on error.
-int
-copyinstr_new(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
+int copyinstr_new(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 {
   struct proc *p = myproc();
   char *s = (char *) srcva;

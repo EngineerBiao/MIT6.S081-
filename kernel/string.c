@@ -27,8 +27,8 @@ memcmp(const void *v1, const void *v2, uint n)
   return 0;
 }
 
-void*
-memmove(void *dst, const void *src, uint n)
+// 拷贝字符串
+void* memmove(void *dst, const void *src, uint n)
 {
   const char *s;
   char *d;

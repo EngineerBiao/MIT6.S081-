@@ -13,6 +13,8 @@ struct mbuf;
 struct sock;
 #endif
 
+// 声明了内核中各种函数、数据结构和全局变量，以便在整个内核代码中使用
+
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);
@@ -167,11 +169,22 @@ pagetable_t     uvmcreate(void);
 void            uvminit(pagetable_t, uchar *, uint);
 uint64          uvmalloc(pagetable_t, uint64, uint64);
 uint64          uvmdealloc(pagetable_t, uint64, uint64);
+void            vmprint(pagetable_t pagetable); // 任务1函数
+pagetable_t     pkvminit(); // 进程的内核页表创建
+void            freeukp(pagetable_t pagetable);
+void            ukvminithart(pagetable_t pagetable); // 设置进程的内核页表SATP
+void            uvmmap(pagetable_t pagetable, uint64 va, uint64 pa, uint64 sz, int perm);
+int             copypg(pagetable_t pagetable, pagetable_t kpagetable, uint64 start, uint64 end);
+
+// vmcopyin.c
+int copyin_new(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len);
+int copyinstr_new(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max);
+
 #ifdef SOL_COW
 #else
-int             uvmcopy(pagetable_t, pagetable_t, uint64);
+    int uvmcopy(pagetable_t, pagetable_t, uint64);
 #endif
-void            uvmfree(pagetable_t, uint64);
+    void uvmfree(pagetable_t, uint64);
 void            uvmunmap(pagetable_t, uint64, uint64, int);
 void            uvmclear(pagetable_t, uint64);
 uint64          walkaddr(pagetable_t, uint64);

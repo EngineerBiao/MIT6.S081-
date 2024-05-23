@@ -323,8 +323,9 @@ sfence_vma()
 #define PGSIZE 4096 // bytes per page
 #define PGSHIFT 12  // bits of offset within a page
 
-#define PGROUNDUP(sz)  (((sz)+PGSIZE-1) & ~(PGSIZE-1))
-#define PGROUNDDOWN(a) (((a)) & ~(PGSIZE-1))
+// 下面两个宏用于对齐页的倍数，如果一个地址的值为4097，向上对齐就是4096*2，向下对齐就是4096
+#define PGROUNDUP(sz)  (((sz)+PGSIZE-1) & ~(PGSIZE-1)) // 向上取页大小的整数倍
+#define PGROUNDDOWN(a) (((a)) & ~(PGSIZE-1)) // 向下取页大小的整数倍
 
 #define PTE_V (1L << 0) // valid
 #define PTE_R (1L << 1)
@@ -333,10 +334,13 @@ sfence_vma()
 #define PTE_U (1L << 4) // 1 -> user can access
 
 // shift a physical address to the right place for a PTE.
+// 用于将物理地址放到PTE中的PPN位置
 #define PA2PTE(pa) ((((uint64)pa) >> 12) << 10)
 
+// 这个宏用于提取PTE中的PPN物理地址
 #define PTE2PA(pte) (((pte) >> 10) << 12)
 
+// 这个宏用于提取PTE中那10个标志位
 #define PTE_FLAGS(pte) ((pte) & 0x3FF)
 
 // extract the three 9-bit page table indices from a virtual address.
