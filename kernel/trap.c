@@ -29,12 +29,9 @@ trapinithart(void)
   w_stvec((uint64)kernelvec);
 }
 
-//
 // handle an interrupt, exception, or system call from user space.
 // called from trampoline.S
-//
-void
-usertrap(void)
+void usertrap(void)
 {
   int which_dev = 0;
 
@@ -43,26 +40,26 @@ usertrap(void)
 
   // send interrupts and exceptions to kerneltrap(),
   // since we're now in the kernel.
-  w_stvec((uint64)kernelvec);
+  w_stvec((uint64)kernelvec); // 将STVEC指向kernelvec变量，这是内核空间trap处理代码的位置
 
-  struct proc *p = myproc();
-  
+  struct proc *p = myproc(); // 找到陷入的进程（通过陷阱帧的tp寄存器）
+
   // save user program counter.
+  // 保存sepc（当前进程pc），防止切换进程后又陷入异常导致pc值被覆盖
   p->trapframe->epc = r_sepc();
-  
-  if(r_scause() == 8){
-    // system call
 
+  if (r_scause() == 8) // 判断异常原因，等于8就是系统调用
+  { 
     if(p->killed)
       exit(-1);
 
     // sepc points to the ecall instruction,
     // but we want to return to the next instruction.
-    p->trapframe->epc += 4;
+    p->trapframe->epc += 4; // 回到引发异常的地方时，需要执行下一条语句
 
     // an interrupt will change sstatus &c registers,
     // so don't enable until done with those registers.
-    intr_on();
+    intr_on(); // 在之前由于涉及到寄存器的操作所以会硬件关闭中断，这里就重新打开
 
     syscall();
   } else if((which_dev = devintr()) != 0){
@@ -77,15 +74,26 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  if(which_dev == 2) // 时钟中断
+  {
+    if (p->alarm_interval != 0 && p->is_alarm == 0)
+    {
+      p->ticks++;
+      if (p->ticks == p->alarm_interval)
+      {
+        p->is_alarm = 1;
+        *p->alarm_trapframe = *p->trapframe; // 保存中断前的用户寄存器
+        // 更改陷阱帧中的sepc，这样返回到用户态时就会跳转到handler
+        p->trapframe->epc = (uint64)p->alarm_handler;
+      }
+    }
     yield();
+  }
 
   usertrapret();
 }
 
-//
 // return to user space
-//
 void
 usertrapret(void)
 {
@@ -124,7 +132,7 @@ usertrapret(void)
   // jump to trampoline.S at the top of memory, which 
   // switches to the user page table, restores user registers,
   // and switches to user mode with sret.
-  uint64 fn = TRAMPOLINE + (userret - trampoline);
+  uint64 fn = TRAMPOLINE + (userret - trampoline); // 跳转到userret的汇编地址
   ((void (*)(uint64,uint64))fn)(TRAPFRAME, satp);
 }
 

@@ -112,6 +112,11 @@ found:
     release(&p->lock);
     return 0;
   }
+  // 给alarm告警分配trapframe用于sigreturn恢复用户寄存器
+  if ((p->alarm_trapframe = (struct trapframe *)kalloc()) == 0) {
+    release(&p->lock);
+    return 0;
+  }
 
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
@@ -127,6 +132,10 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  // 初始化报警相关字段
+  p->alarm_interval = 0;
+  p->ticks = 0;
+  
   return p;
 }
 
@@ -138,7 +147,10 @@ freeproc(struct proc *p)
 {
   if(p->trapframe)
     kfree((void*)p->trapframe);
+  if (p->alarm_trapframe) // 释放告警陷阱帧
+    kfree((void *)p->alarm_trapframe);
   p->trapframe = 0;
+  p->alarm_trapframe = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;

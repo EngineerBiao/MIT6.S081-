@@ -121,6 +121,7 @@ panic(char *s)
   printf("panic: ");
   printf(s);
   printf("\n");
+  backtrace();
   panicked = 1; // freeze uart output from other CPUs
   for(;;)
     ;
@@ -131,4 +132,18 @@ printfinit(void)
 {
   initlock(&pr.lock, "pr");
   pr.locking = 1;
+}
+
+// 打印出每个函数栈帧中的返回地址
+void backtrace(void)
+{
+  printf("backtrace:\n");
+  uint64 fp = r_fp(); // 获取当前的帧指针
+  // 内核以页面对齐的地址为每个栈分配一个页面，所以对fp进行向上对齐即得到栈最高地址
+  uint64 top = PGROUNDUP(fp);
+  while (fp < top) // 这里不能加等于号
+  {
+    printf("%p\n", *((uint64 *)(fp - 8))); // 打印返回地址（fp是一个整数，这里要把他视为指针）
+    fp = *((uint64 *)(fp - 16)); // 获取上级函数的帧指针
+  }
 }

@@ -57,10 +57,10 @@ sys_sleep(void)
 {
   int n;
   uint ticks0;
-
   if(argint(0, &n) < 0)
     return -1;
   acquire(&tickslock);
+  
   ticks0 = ticks;
   while(ticks - ticks0 < n){
     if(myproc()->killed){
@@ -70,6 +70,8 @@ sys_sleep(void)
     sleep(&ticks, &tickslock);
   }
   release(&tickslock);
+  
+  backtrace();
   return 0;
 }
 
@@ -95,3 +97,29 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_sigreturn(void)
+{
+  struct proc *p = myproc();
+  *p->trapframe = *p->alarm_trapframe; // 将陷阱帧（用户寄存器）恢复到中断前
+  p->is_alarm = 0;
+  p->ticks = 0; // 重新开始计数
+  return 0;
+}
+
+uint64
+sys_sigalarm(void)
+{
+  int interval;
+  uint64 handler;
+  struct proc *p;
+  // 从trapframe中获取整数interval和地址handler（0和1表示系统调用传入的第0/1个参数）
+  if (argint(0, &interval) < 0 || argaddr(1, &handler) < 0)
+    return -1;
+  p = myproc();
+  p->alarm_interval = interval;
+  p->alarm_handler = (void *)handler;
+  return 0;
+}
+

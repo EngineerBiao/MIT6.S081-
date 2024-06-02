@@ -1,10 +1,8 @@
-//
 // test program for the alarm lab.
 // you can modify this file for testing,
 // but please make sure your kernel
 // modifications pass the original
 // versions of these tests.
-//
 
 #include "kernel/param.h"
 #include "kernel/types.h"
