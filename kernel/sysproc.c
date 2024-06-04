@@ -43,12 +43,22 @@ sys_sbrk(void)
 {
   int addr;
   int n;
-
+  struct proc *p = myproc();
+  
   if(argint(0, &n) < 0)
     return -1;
-  addr = myproc()->sz;
-  if(growproc(n) < 0)
+  if (n > 0) // 懶分配
+    p->sz += n;
+  else if (p->sz + n > 0) // 减小的内存不能大于进程内存
+  {
+    int sz = uvmdealloc(p->pagetable, p->sz, p->sz + n);
+    p->sz = sz;
+  }
+  else
     return -1;
+  // if(growproc(n) < 0)
+  //   return -1;
+  addr = p->sz;
   return addr;
 }
 

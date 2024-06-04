@@ -29,10 +29,8 @@ trapinithart(void)
   w_stvec((uint64)kernelvec);
 }
 
-//
 // handle an interrupt, exception, or system call from user space.
 // called from trampoline.S
-//
 void
 usertrap(void)
 {
@@ -65,9 +63,27 @@ usertrap(void)
     intr_on();
 
     syscall();
-  } else if((which_dev = devintr()) != 0){
-    // ok
-  } else {
+  } 
+  else if((which_dev = devintr()) != 0)
+  {} // ok
+  else if (r_scause() == 13 || r_scause() == 15) // 页错误处理程序
+  {
+    uint64 fault_va = r_stval(); // 获取产生页面错误的虚拟地址
+    // 判断虚拟地址是否合法，地址需要大于栈顶指针，小于进程的大小
+    if (fault_va <= PGROUNDUP(p->trapframe->sp) || fault_va >= p->sz)
+      exit(-1);
+    // 给该虚拟地址分配内存(kalloc)和映射(mappages)
+    uint64 pa;
+    if ((pa = (uint64)kalloc()) == 0) // 分配物理地址
+      p->killed = 1;
+    memset((void *)pa, 0, PGSIZE);
+    if (mappages(p->pagetable, PGROUNDDOWN(fault_va), PGSIZE, (uint64)pa, PTE_R | PTE_W | PTE_X | PTE_U) != 0)
+    {
+      kfree((void *)pa);
+      p->killed = 1;
+    }
+  }
+  else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;

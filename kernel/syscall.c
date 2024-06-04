@@ -58,16 +58,34 @@ int
 argint(int n, int *ip)
 {
   *ip = argraw(n);
+  
   return 0;
 }
 
 // Retrieve an argument as a pointer.
 // Doesn't check for legality, since
 // copyin/copyout will do that.
+// 获取函数的第n个参数，以指针形式赋值给ip
 int
 argaddr(int n, uint64 *ip)
 {
-  *ip = argraw(n);
+  *ip = argraw(n); // 获取函数参数
+  // 为懒分配的内存进行内存分配
+  struct proc *p = myproc();
+  if (walkaddr(p->pagetable, *ip) == 0) // 如果内存未被映射，可能就是懒分配
+  {
+    if (*ip <= PGROUNDUP(p->trapframe->sp) || *ip >= p->sz)
+      return -1;
+    char *pa = kalloc();
+    if (pa == 0)
+      return -1;
+    memset(pa, 0, PGSIZE);
+    if (mappages(p->pagetable, PGROUNDDOWN(*ip), PGSIZE, (uint64)pa, PTE_R | PTE_W | PTE_X | PTE_U) != 0)
+    {
+      kfree(pa);
+      return -1;
+    }
+  }
   return 0;
 }
 
