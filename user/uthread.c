@@ -10,11 +10,20 @@
 #define STACK_SIZE  8192
 #define MAX_THREAD  4
 
+struct ctx
+{
+  uint64 ra; // 存储返回地址的寄存器
+  uint64 sp; // 线程的栈指针
+
+  // callee-saved
+  uint64 s0, s1, s2, s3, s4, s5;
+  uint64 s6, s7, s8, s9, s10, s11;
+};
 
 struct thread {
   char       stack[STACK_SIZE]; /* the thread's stack */
   int        state;             /* FREE, RUNNING, RUNNABLE */
-
+  struct ctx context;           // 线程的上下文
 };
 struct thread all_thread[MAX_THREAD];
 struct thread *current_thread;
@@ -38,16 +47,18 @@ thread_schedule(void)
   struct thread *t, *next_thread;
 
   /* Find another runnable thread. */
-  next_thread = 0;
-  t = current_thread + 1;
+  next_thread = 0; // 指向下一个要运行的线程
+  t = current_thread + 1; // 从当前线程的下一个线程进行查找
+  
+  // 遍历所有线程来找到下一个可运行的线程
   for(int i = 0; i < MAX_THREAD; i++){
-    if(t >= all_thread + MAX_THREAD)
+    if(t >= all_thread + MAX_THREAD) // 到达数组结尾就从头开始
       t = all_thread;
-    if(t->state == RUNNABLE) {
+    if(t->state == RUNNABLE) { // 找到就确定了下一个运行的线程
       next_thread = t;
       break;
     }
-    t = t + 1;
+    t = t + 1; // 移动到下一个线程
   }
 
   if (next_thread == 0) {
@@ -55,7 +66,7 @@ thread_schedule(void)
     exit(-1);
   }
 
-  if (current_thread != next_thread) {         /* switch threads?  */
+  if (current_thread != next_thread) { // 找到能切换运行的线程
     next_thread->state = RUNNING;
     t = current_thread;
     current_thread = next_thread;
@@ -63,6 +74,7 @@ thread_schedule(void)
      * Invoke thread_switch to switch from t to next_thread:
      * thread_switch(??, ??);
      */
+    thread_switch((uint64)&t->context, (uint64)&current_thread->context); // 保存当前线程上下文，加载下个线程的上下文
   } else
     next_thread = 0;
 }
@@ -77,6 +89,8 @@ thread_create(void (*func)())
   }
   t->state = RUNNABLE;
   // YOUR CODE HERE
+  t->context.ra = (uint64)func; // 把函数的地址赋给ra，当线程切换时，可通过ra知道切换的地址
+  t->context.sp = (uint64)t->stack + STACK_SIZE; // 初始化线程的栈指针为线程栈的顶端，保证线程从栈顶开始使用栈空间
 }
 
 void 

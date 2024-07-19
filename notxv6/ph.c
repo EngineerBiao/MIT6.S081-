@@ -16,6 +16,7 @@ struct entry {
 struct entry *table[NBUCKET];
 int keys[NKEYS];
 int nthread = 1;
+pthread_mutex_t lks[NBUCKET]; // 全局锁
 
 double
 now()
@@ -38,7 +39,7 @@ insert(int key, int value, struct entry **p, struct entry *n)
 static 
 void put(int key, int value)
 {
-  int i = key % NBUCKET;
+  int i = key % NBUCKET; // 通过取模来计算键key的哈希值i，以确定该键值对应的桶bucket
 
   // is the key already present?
   struct entry *e = 0;
@@ -46,13 +47,15 @@ void put(int key, int value)
     if (e->key == key)
       break;
   }
+  pthread_mutex_lock(&lks[i]); // 为写操作上锁
   if(e){
     // update the existing key.
     e->value = value;
   } else {
-    // the new is new.
+    // the new is new.如果键不存在，则插入新的键值对
     insert(key, value, &table[i], table[i]);
   }
+  pthread_mutex_unlock(&lks[i]);
 }
 
 static struct entry*
@@ -114,10 +117,12 @@ main(int argc, char *argv[])
   for (int i = 0; i < NKEYS; i++) {
     keys[i] = random();
   }
+  
+  // 初始化锁
+  for (int i = 0; i < NBUCKET; i++)
+    pthread_mutex_init(&lks[i], NULL);
 
-  //
   // first the puts
-  //
   t0 = now();
   for(int i = 0; i < nthread; i++) {
     assert(pthread_create(&tha[i], NULL, put_thread, (void *) (long) i) == 0);
