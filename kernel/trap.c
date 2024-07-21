@@ -29,10 +29,8 @@ trapinithart(void)
   w_stvec((uint64)kernelvec);
 }
 
-//
 // handle an interrupt, exception, or system call from user space.
 // called from trampoline.S
-//
 void
 usertrap(void)
 {
@@ -63,19 +61,27 @@ usertrap(void)
     // an interrupt will change sstatus &c registers,
     // so don't enable until done with those registers.
     intr_on();
-
     syscall();
-  } else if((which_dev = devintr()) != 0){
-    // ok
-  } else {
+  } 
+  else if((which_dev = devintr()) != 0) {} // ok
+  else if (r_scause() == 13 || r_scause() == 15) // 页错误处理程序
+  {
+    uint64 fault_va = r_stval(); // 获取产生页面错误的虚拟地址
+    if (!iscow(p->pagetable, fault_va)) // 判断是否为COW
+      goto other;
+    if (!cowcopy(p->pagetable, fault_va))
+      goto killing;
+  }
+  else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
   }
-
+killing:
   if(p->killed)
     exit(-1);
-
+    
+other:
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2)
     yield();

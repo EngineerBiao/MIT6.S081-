@@ -301,8 +301,7 @@ uvmfree(pagetable_t pagetable, uint64 sz)
 
 // Given a parent process's page table, copy
 // its memory into a child's page table.
-// Copies both the page table and the
-// physical memory.
+// Copies both the page table and the physical memory.
 // returns 0 on success, -1 on failure.
 // frees any allocated pages on failure.
 int
@@ -311,7 +310,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   pte_t *pte;
   uint64 pa, i;
   uint flags;
-  char *mem;
+  // char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
@@ -319,6 +318,8 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
     pa = PTE2PA(*pte);
+    
+    /* 不立即复制内存
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)
       goto err;
@@ -326,7 +327,16 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
       kfree(mem);
       goto err;
-    }
+    } */
+    
+    // 删掉PTE的可写标记和增加COW标记
+    *pte &= (~PTE_W);
+    *pte |= PTE_F;
+    flags = PTE_FLAGS(*pte);
+    if (mappages(new, i, PGSIZE, (uint64)pa, flags) != 0) // 直接映射到父进程的物理地址
+      goto err;
+    // 增加引用计数
+    ref_incre(pa);
   }
   return 0;
 
@@ -359,6 +369,8 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
     pa0 = walkaddr(pagetable, va0);
+    if (iscow(pagetable, va0)) // 当被拷贝的页为COW时，要先进行实际的分配
+      pa0 = cowcopy(pagetable, va0);
     if(pa0 == 0)
       return -1;
     n = PGSIZE - (dstva - va0);
