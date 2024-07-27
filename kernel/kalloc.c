@@ -21,13 +21,14 @@ struct run {
 struct {
   struct spinlock lock;
   struct run *freelist;
-} kmem;
+} kmems[NCPU];
 
 void
 kinit()
 {
-  initlock(&kmem.lock, "kmem");
-  freerange(end, (void*)PHYSTOP);
+  for (int i = 0; i < NCPU; i++)
+    initlock(&kmems[i].lock, "kmem");
+  freerange(end, (void*)PHYSTOP); 
 }
 
 void
@@ -55,11 +56,15 @@ kfree(void *pa)
   memset(pa, 1, PGSIZE);
 
   r = (struct run*)pa;
-
-  acquire(&kmem.lock);
-  r->next = kmem.freelist;
-  kmem.freelist = r;
-  release(&kmem.lock);
+  
+  push_off();
+  int id = cpuid();
+  pop_off();
+  
+  acquire(&kmems[id].lock); // 不用把内存归还
+  r->next = kmems[id].freelist;
+  kmems[id].freelist = r;
+  release(&kmems[id].lock);
 }
 
 // Allocate one 4096-byte page of physical memory.
@@ -70,11 +75,33 @@ kalloc(void)
 {
   struct run *r;
 
-  acquire(&kmem.lock);
-  r = kmem.freelist;
-  if(r)
-    kmem.freelist = r->next;
-  release(&kmem.lock);
+  push_off(); // 获取cpuid时要关中断
+  int id = cpuid();
+  pop_off();
+  
+  acquire(&kmems[id].lock);
+  r = kmems[id].freelist;
+  if(r) // 如果列表不为空就直接从列表中获取
+    kmems[id].freelist = r->next;
+  else // 如果列表为空则需要从其他CPU的列表中获取，在用完后直接放回自己的列表
+  {
+    for (int i = 0; i < NCPU; i++)
+    {
+      if (i == id) // 要判断是否是自己的CPU，避免重复上锁导致死锁
+       continue;
+      acquire(&kmems[i].lock);
+      if (!kmems[i].freelist)
+      {
+        release(&kmems[i].lock);
+        continue;
+      }
+      r = kmems[i].freelist; // 从其他cpu的列表获取
+      kmems[i].freelist = r->next; // 从列表中删除
+      release(&kmems[i].lock);
+      break;
+    }
+  }
+  release(&kmems[id].lock);
 
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
